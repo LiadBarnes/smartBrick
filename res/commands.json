@@ -1,0 +1,5 @@
+{
+  "open": "test.py",
+  "close": 180,
+  "test": "commands/test.py"
+}
