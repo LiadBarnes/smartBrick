@@ -2,8 +2,8 @@ import json
 import functools
 import os
 
-import telebot
-from telebot import *
+#import telebot
+#from telebot import *
 from threading import Lock
 import ast
 import traceback
@@ -126,9 +126,6 @@ class Listener:
     def exec_custom_py(self, file):
         exec(open(f'commands/{file}').read())
 
-    def run(self):
-        thread = threading.Thread(target=self.start, daemon=True)
-        thread.start()
 
     def start(self):
         while not self.stop_sign:

@@ -2,7 +2,7 @@ from CoreFuncs.funcs import *
 
 listener = Listener()
 RAM = Myjson('res/properties.json')
-bot = telebot.TeleBot('1152150629:AAGcrvSKMQ6OhZRrXXtGywrpLGKHD0v9qNc')
+#bot = telebot.TeleBot('1152150629:AAGcrvSKMQ6OhZRrXXtGywrpLGKHD0v9qNc')
 
 
 def makeMenu(call, header, keyboard, string='default'):
