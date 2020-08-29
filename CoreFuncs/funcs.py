@@ -7,7 +7,7 @@ import os
 from threading import Lock
 import ast
 import traceback
-from telebot.apihelper import ApiException
+#from telebot.apihelper import ApiException
 import speech_recognition as sr
 
 class AtmoicResource:
