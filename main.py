@@ -1,150 +1,129 @@
-from CoreFuncs.funcs import *
-
-listener = Listener()
-RAM = Myjson('res/properties.json')
-#bot = telebot.TeleBot('1152150629:AAGcrvSKMQ6OhZRrXXtGywrpLGKHD0v9qNc')
-
-
-def makeMenu(call, header, keyboard, string='default'):
-    try:
-        if (string == 'default'):
-            Text = header
-        else:
-            Text = string + '\n\n' + header
-
-        bot.edit_message_text(chat_id=call.message.chat.id,
-                              text=Text,
-                              message_id=call.message.message_id,
-                              reply_markup=keyboard,
-                              parse_mode='HTML')
-    except ApiException as e:
-        print(e.args)
-
-    except:
-        traceback.print_exc()
-        pass
-
-class Keyborad_Switcher:
-    '''
-        [kb_name, Admin_func(opt)... ]
-    '''
-    __slots__ = ['call', 'chat_id']
-
-    def __init__(self, call):
-        self.call = call
-        self.chat_id = str(call.from_user.id)
-        # Menu inside menu
-        if simplify(call)[0] == 'Dummy_Button':
-            return
-        method_name = simplify(call)[1]
-        method = eval(f'Admin_{method_name}')
-        method(call)
+import json
+import functools
+from threading import Lock
+import speech_recognition as sr
 
 
-# class Admin_Settings:
-#
-#     __slots__ = ['call', 'chat_id', 'method_name', 'identifier', 'sign', 'user_link']
-#
-#     def __init__(self, call):
-#         self.call = call
-#         self.chat_id = str(call.from_user.id)
-#
-#         self.method_name = simplify(call)[2]
-#         try:
-#             self.identifier = simplify(call)[3]
-#             self.sign = simplify(call)[4]
-#         except:
-#             pass
-#         method = getattr(self, self.method_name, lambda: 'Invalid')
-#         method()
-#
-#     @staticmethod
-#     def Header():
-#         text = f"SmartBrick"
-#         return text
-#
-#     @staticmethod
-#     def Keyboard():
-#         markup = types.InlineKeyboardMarkup()
-#         V, X = '✅', '☑️'
-#         # Status
-#         data = RAM.get()
-#         Statusbtn = btn('Status', Dummy=True)
-#         Status = btn(V, ['Admin', 'Settings', 'update', 'Status', '0']) if data['Status'] == 1 \
-#             else btn(X, ['Admin', 'Settings', 'update', 'Status', '1'])
-#         markup.add(Statusbtn, Status)
-#
-#         # Servo PWM
-#
-#         markup.add(btn('Servo PWM', Dummy=True) , btn(str(data['Current_PWM']), Dummy=True))
-#         markup.add(btn('⬇️ Change PWM ⬇️', Dummy=True))
-#         for operator in ['+', '-']:
-#             val = 1
-#             markup.add(btn(operator + str(val), ['Admin', 'Settings', 'PWM', operator, val]),
-#                        btn(operator + str(val * 10), ['Admin', 'Settings', 'PWM', operator, val * 10]),
-#                        btn(operator + str(val * 100), ['Admin', 'Settings', 'PWM', operator, val * 100]))
-#
-#         return markup
-#
-#     def update(self):
-#         RAM.set(self.identifier, int(self.sign))
-#         listener.stop_sign = False if self.sign == "1" else True
-#
-#         return makeMenu(self.call, self.Header(), self.Keyboard())
-#
-#     def PWM(self):
-#         temp = RAM.get('Current_PWM')
-#         temp = int(temp) + int(self.sign) if self.identifier == '+' else int(temp) - int(self.sign)
-#         min_post_time = RAM.get('Min_Post_Time')
-#         temp = min_post_time if temp < min_post_time else temp
-#         RAM.set('Current_PWM', temp)
-#         return makeMenu(self.call, self.Header(), self.Keyboard())
-#
-#     def AddGroup(self):
-#         msg = bot.send_message(self.chat_id, 'Enter Group User-name, whether with @ or with t.me/')
-#         bot.register_next_step_handler(msg, self.process_add_group)
-#
-#     def process_add_group(self, group):
-#         group = group.text
-#         if 't.me' in group:
-#             group = f"@{group.split('t.me/')[-1]}"
-#         elif '@' not in group:
-#             group = f'@{group}'
-#
-#         RAM.add_to_list('Groups', group)
-#
-#     def RemoveGroup(self):
-#         msg = bot.send_message(self.chat_id, 'הכנס שם קבוצה כולל @')
-#         bot.register_next_step_handler(msg, self.process_remove_group)
-#
-#     def process_remove_group(self, group):
-#         RAM.remove_from_list('Groups', group.html_text)
-#
-#     def AddUser(self):
-#         msg = bot.send_message(self.chat_id, 'Enter User name, whether with @ or with t.me/')
-#         bot.register_next_step_handler(msg, self.process_add_user)
-#
-# class Bot_Handlers:
-#     __slots__ = []
-#     @staticmethod
-#     @bot.message_handler(commands=['start'])
-#     def handle_command_on(message):
-#         chat_id = str(message.chat.id)
-#         bot.send_message(chat_id, Admin_Settings.Header(), reply_markup=Admin_Settings.Keyboard())
-#
-#     @staticmethod
-#     @bot.callback_query_handler(func=lambda call: True)
-#     def handle_all_button_clicks(call):
-#         chat_id = str(call.from_user.id)
-#         try:
-#                 Keyborad_Switcher(call)
-#         except:
-#             traceback.print_exc()
-#             print('chat id -', chat_id, 'in Menu -', simplify(call)[1])
+class AtmoicResource:
+    __slots__ = ['mutex']
+    def __init__(self):
+        self.mutex = Lock()
 
-#thread = threading.Thread(target=bot.polling, daemon=True)
-#thread.start()
+    def wrap(func):
+        @functools.wraps(func)
+        def decorate(self, *args, **kwargs):
+            self.mutex.acquire(1)
+            res = func(self, *args, **kwargs)
+            self.mutex.release()
+            if res is not None: return res
 
-l = Listener()
-l.start()
+        return decorate
+
+class Myjson(AtmoicResource):
+    __slots__ = ['file']
+    def __init__(self, file_path):
+        super().__init__()
+        self.file = file_path
+
+    @AtmoicResource.wrap
+    def get(self, key = False):
+        with open(self.file, encoding = 'utf8') as json_file:
+            data = json.load(json_file)
+            if not key:
+                return data
+            elif key in data:
+                return data[key]
+            return None
+
+    @AtmoicResource.wrap
+    def set(self, key, value):
+        with open(self.file, encoding = 'utf8') as json_file:
+            data = json.load(json_file)
+            data[key] = value
+        with open(self.file, 'w', encoding = 'utf8') as outfile:
+            json.dump(data, outfile, indent=2)
+
+class Listener:
+    def __init__(self):
+        self.recognizer = sr.Recognizer()
+        self.microphone = sr.Microphone()
+        self.commands = Myjson("res/commands.json")
+        self.google_Client_id = "421190642899-qde1k8ilnefjpdt2uj170auccko6sn0f.apps.googleusercontent.com"
+        self.google_client_secret = "8CQPLzlncyo7Awg8U17ePF_m"
+        self.stop_sign = False
+
+    def recognize_speech_from_mic(self):
+        """Transcribe speech from recorded from `microphone`.
+
+        Returns a dictionary with three keys:
+        "success": a boolean indicating whether or not the API request was
+                   successful
+        "error":   `None` if no error occured, otherwise a string containing
+                   an error message if the API could not be reached or
+                   speech was unrecognizable
+        "transcription": `None` if speech could not be transcribed,
+                   otherwise a string containing the transcribed text
+        """
+        # check that recognizer and microphone arguments are appropriate type
+        if not isinstance(self.recognizer, sr.Recognizer):
+            raise TypeError("`recognizer` must be `Recognizer` instance")
+
+        if not isinstance(self.microphone, sr.Microphone):
+            raise TypeError("`microphone` must be `Microphone` instance")
+
+        # adjust the recognizer sensitivity to ambient noise and record audio
+        # from the microphone
+        with self.microphone as source:
+            self.recognizer.adjust_for_ambient_noise(source)
+            audio = self.recognizer.listen(source)
+
+        # set up the response object
+        response = {
+            "success": True,
+            "error": None,
+            "transcription": None
+        }
+
+        # try recognizing the speech in the recording
+        # if a RequestError or UnknownValueError exception is caught,
+        #     update the response object accordingly
+        try:
+            response["transcription"] = self.recognizer.recognize_google(audio)
+        except sr.RequestError:
+            # API was unreachable or unresponsive
+            response["success"] = False
+            response["error"] = "API unavailable"
+        except sr.UnknownValueError:
+            # speech was unintelligible
+            response["error"] = "Unable to recognize speech"
+
+        return response
+
+    def exec_custom_py(self, file):
+        exec(open(f'commands/{file}').read())
+
+    def start(self):
+        while not self.stop_sign:
+            pharse = self.recognize_speech_from_mic()
+            if pharse["transcription"]:
+                print(f'You said - {pharse["transcription"]}')
+                data = self.commands.get()
+                if pharse["transcription"] in data.keys():
+                    self.exec_custom_py(data[pharse["transcription"]])
+            if not pharse["success"]:
+                print('not success')
+
+            # if there was an error, stop the game
+            if pharse["error"]:
+                if pharse["error"] != "Unable to recognize speech":
+                    print("ERROR: {}".format(pharse["error"]))
+                    return
+                else:
+                    print("Listening...")
+
+    def stop(self):
+        self.stop_sign = True
+
+task = Listener()
+task.start()
 
